@@ -13,12 +13,14 @@ Current repo status at handoff creation:
 - completed runtime commit: `f3997bb Complete Pi session continuity MVP`
 - completed source import commit: `37d6b26 Import Pi Agent ChatGPT project sources`
 
-The completed MVP slice is `PI-RUNTIME-SESSION-CONTINUITY-001`: saved-session
-continuity when the transcript includes pathological Markdown-looking terminal
-output. That slice is complete, committed, and ready for local testing.
+The completed runtime MVP slice is `PI-RUNTIME-SESSION-CONTINUITY-001`:
+saved-session continuity when the transcript includes pathological
+Markdown-looking terminal output. That slice is complete, committed, and ready
+for local testing.
 
-The broader Pi Agent MVP is not complete. It needs a new narrow implementation
-slice that advances the product loop beyond the session-continuity witness.
+The next broader MVP slice is now implemented as a Pi-native `/feedback`
+command. It creates a durable local YAML artifact under `.pi/feedback/` that a
+later Pi or Codex session can inspect without needing chat history.
 
 ## Completed MVP Slice
 
@@ -52,6 +54,27 @@ Verification already completed before commit:
 Bounded claim: this is a local checkout implementation and regression witness.
 It does not claim an upstream release, maintainer action, or deployed product
 fix.
+
+## Implemented Feedback MVP Slice
+
+`PI-FEEDBACK-CAPTURE-001` is the first native broader-MVP feedback slice.
+
+Delivered artifacts:
+
+- `packages/coding-agent/src/core/feedback.ts`: deterministic local YAML
+  feedback record writer.
+- `packages/coding-agent/src/core/slash-commands.ts`: `/feedback` appears in
+  built-in slash-command completion.
+- `packages/coding-agent/src/modes/interactive/interactive-mode.ts`: `/feedback [summary]`
+  writes `.pi/feedback/pi-feedback-YYYYMMDD-HHMMSS.yaml` and reports the path.
+- `packages/coding-agent/test/feedback.test.ts`: regression coverage for record
+  path, source/task/friction/agent-analysis/status sections, and TODO guidance.
+- `packages/coding-agent/README.md`, `packages/coding-agent/docs/usage.md`,
+  `packages/coding-agent/docs/sessions.md`, and
+  `packages/coding-agent/CHANGELOG.md`: documented command surface.
+
+Bounded claim: this implements local feedback capture only. It does not open
+GitHub issues or PRs, publish feedback, implement rewards, or add a dashboard.
 
 ## Broader MVP Hypothesis
 
@@ -88,7 +111,8 @@ Recovered milestones:
 1. Feedback OS Spec
    - Define feedback record shape, triage statuses, reward statuses, Codex loop,
      and anti-gaming policy.
-   - Status in this repo: imported source exists; no native Pi implementation.
+   - Status in this repo: imported source exists and native `/feedback` capture
+     is implemented; full triage/reward policy remains future work.
 
 2. Manual GTM Self-Improving Loop
    - Run one artifact-rich cycle before automation.
@@ -102,14 +126,14 @@ Recovered milestones:
 3. Manual Intake Trial
    - Collect 10 to 20 anonymized feedback specimens and advance several through
      evidence, evaluation, decision, and at least one simulated outcome.
-   - Status in this repo: imported specimen sources exist; no local intake
-     command yet.
+   - Status in this repo: imported specimen sources exist and local capture is
+     available; specimen-batch intake and simulated outcomes remain future work.
 
 4. Feedback Widget Prototype
    - Add a visible feedback surface, create a durable record, return an
      acknowledgement ID, and route to manual triage.
-   - Status in this repo: for Pi, the equivalent first visible surface should be
-     a slash command, not a web widget.
+   - Status in this repo: implemented as the Pi-native `/feedback` slash
+     command rather than a web widget.
 
 5. Loop Control Panel
    - Show loop state, stale evidence, relevance risk, accepted work, verification
@@ -121,9 +145,11 @@ Recovered milestones:
      work back to feedback.
    - Status in this repo: defer until local loop is proven.
 
-## Recommended Next Implementation Slice
+## Implemented Slice Details
 
-Implement a Pi-native `/feedback` command as the next broader MVP slice.
+The Pi-native `/feedback` command is the next broader MVP slice.
+
+Status: implemented as `PI-FEEDBACK-CAPTURE-001`.
 
 Reason:
 

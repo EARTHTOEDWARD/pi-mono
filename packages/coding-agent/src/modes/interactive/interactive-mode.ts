@@ -67,6 +67,7 @@ import type {
 	ExtensionUIDialogOptions,
 	ExtensionWidgetOptions,
 } from "../../core/extensions/index.js";
+import { writeFeedbackRecord } from "../../core/feedback.js";
 import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.js";
 import { type AppKeybinding, KeybindingsManager } from "../../core/keybindings.js";
 import { createCompactionSummaryMessage } from "../../core/messages.js";
@@ -2485,6 +2486,12 @@ export class InteractiveMode {
 			}
 			if (text === "/session") {
 				this.handleSessionCommand();
+				this.editor.setText("");
+				return;
+			}
+			if (text === "/feedback" || text.startsWith("/feedback ")) {
+				const summary = text.startsWith("/feedback ") ? text.slice(10).trim() : undefined;
+				this.handleFeedbackCommand(summary);
 				this.editor.setText("");
 				return;
 			}
@@ -5082,6 +5089,19 @@ export class InteractiveMode {
 		this.chatContainer.addChild(new Spacer(1));
 		this.chatContainer.addChild(new Text(info, 1, 0));
 		this.ui.requestRender();
+	}
+
+	private handleFeedbackCommand(summary?: string): void {
+		try {
+			const result = writeFeedbackRecord({
+				cwd: this.sessionManager.getCwd(),
+				piVersion: VERSION,
+				summary,
+			});
+			this.showStatus(`Feedback captured: ${result.filePath}`);
+		} catch (error) {
+			this.showError(`Failed to capture feedback: ${error instanceof Error ? error.message : String(error)}`);
+		}
 	}
 
 	private handleChangelogCommand(): void {
