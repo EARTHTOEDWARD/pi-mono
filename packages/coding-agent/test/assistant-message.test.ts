@@ -54,4 +54,16 @@ describe("AssistantMessageComponent", () => {
 		expect(rendered.includes(OSC133_ZONE_END)).toBe(false);
 		expect(rendered.includes(OSC133_ZONE_FINAL)).toBe(false);
 	});
+
+	test("renders assistant text with deeply nested blockquote-looking terminal output", () => {
+		initTheme("dark");
+
+		const terminalOutput = `${">".repeat(2000)} terminal output`;
+		const component = new AssistantMessageComponent(createAssistantMessage([{ type: "text", text: terminalOutput }]));
+		const rendered = component.render(80).join("\n");
+
+		expect(rendered).toContain("terminal output");
+		expect(rendered).toContain(">>>>>>>>");
+		expect(rendered).not.toContain("│ ");
+	});
 });

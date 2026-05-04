@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Markdown rendering to degrade pathological deeply nested blockquote-looking terminal output as plain text instead of overflowing the call stack.
+
 ## [0.72.1] - 2026-05-02
 
 ## [0.72.0] - 2026-05-01

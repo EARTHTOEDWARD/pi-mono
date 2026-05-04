@@ -805,6 +805,26 @@ again, hello world`,
 				`Expected blockquote to end without a blank line: ${JSON.stringify(plainLines)}`,
 			);
 		});
+
+		it("should render deeply nested blockquote-looking terminal output as plain text", () => {
+			for (const depth of [80, 2000]) {
+				const terminalOutput = `${">".repeat(depth)} terminal output`;
+				const markdown = new Markdown(terminalOutput, 0, 0, defaultMarkdownTheme);
+
+				const lines = markdown.render(80);
+				const plainOutput = lines.map((line) => line.replace(/\x1b\[[0-9;]*m/g, "").trimEnd()).join("\n");
+
+				assert.ok(plainOutput.includes("terminal output"), `Should preserve terminal output at depth ${depth}`);
+				assert.ok(
+					plainOutput.includes(">>>>>>>>"),
+					`Should preserve leading greater-than characters at depth ${depth}`,
+				);
+				assert.ok(
+					!plainOutput.includes("│ "),
+					`Should not expand pathological input into nested quote borders at depth ${depth}`,
+				);
+			}
+		});
 	});
 
 	describe("Blockquotes with multiline content", () => {

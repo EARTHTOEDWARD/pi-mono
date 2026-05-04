@@ -27,6 +27,8 @@ markdownParser.setOptions({
 	tokenizer: new StrictStrikethroughTokenizer(),
 });
 
+const MAX_BLOCKQUOTE_NESTING_DEPTH = 16;
+
 /**
  * Default text styling for markdown content.
  * Applied to all text unless overridden by markdown formatting.
@@ -133,7 +135,7 @@ export class Markdown implements Component {
 		}
 
 		// Replace tabs with 3 spaces for consistent rendering
-		const normalizedText = this.text.replace(/\t/g, "   ");
+		const normalizedText = this.escapeDeepBlockquoteMarkers(this.text.replace(/\t/g, "   "));
 
 		// Parse markdown to HTML-like tokens
 		const tokens = markdownParser.lexer(normalizedText);
@@ -145,7 +147,7 @@ export class Markdown implements Component {
 			const token = tokens[i];
 			const nextToken = tokens[i + 1];
 			const tokenLines = this.renderToken(token, contentWidth, nextToken?.type);
-			renderedLines.push(...tokenLines);
+			this.appendLines(renderedLines, tokenLines);
 		}
 
 		// Wrap lines (NO padding, NO background yet)
@@ -154,7 +156,7 @@ export class Markdown implements Component {
 			if (isImageLine(line)) {
 				wrappedLines.push(line);
 			} else {
-				wrappedLines.push(...wrapTextWithAnsi(line, contentWidth));
+				this.appendLines(wrappedLines, wrapTextWithAnsi(line, contentWidth));
 			}
 		}
 
@@ -284,6 +286,77 @@ export class Markdown implements Component {
 		};
 	}
 
+	private appendLines(target: string[], source: string[]): void {
+		for (const line of source) {
+			target.push(line);
+		}
+	}
+
+	private getBlockquoteNestingDepth(token: Token): number {
+		let depth = 0;
+		let current: Token | undefined = token;
+
+		while (current?.type === "blockquote") {
+			depth++;
+			if (depth > MAX_BLOCKQUOTE_NESTING_DEPTH) {
+				return depth;
+			}
+
+			const childTokens: Token[] | undefined = (current as Tokens.Blockquote).tokens;
+			if (!childTokens || childTokens.length !== 1) {
+				return depth;
+			}
+
+			current = childTokens[0];
+		}
+
+		return depth;
+	}
+
+	private renderBlockquoteAsPlainText(token: Tokens.Blockquote, styleContext?: InlineStyleContext): string[] {
+		const applyText = styleContext?.applyText ?? this.getDefaultInlineStyleContext().applyText;
+		const rawText = token.raw.trimEnd();
+		if (!rawText) {
+			return [];
+		}
+
+		return rawText.split("\n").map((line) => applyText(line));
+	}
+
+	private escapeDeepBlockquoteMarkers(text: string): string {
+		const lines = text.split("\n");
+		let inFencedCode = false;
+		let fenceMarker = "";
+
+		return lines
+			.map((line) => {
+				const fenceMatch = /^( {0,3})(`{3,}|~{3,})/.exec(line);
+				if (fenceMatch) {
+					const marker = fenceMatch[2];
+					if (!inFencedCode) {
+						inFencedCode = true;
+						fenceMarker = marker;
+					} else if (marker[0] === fenceMarker[0] && marker.length >= fenceMarker.length) {
+						inFencedCode = false;
+						fenceMarker = "";
+					}
+					return line;
+				}
+
+				if (inFencedCode) {
+					return line;
+				}
+
+				const blockquoteMatch = /^( {0,3})(>{17,})(.*)$/.exec(line);
+				if (!blockquoteMatch) {
+					return line;
+				}
+
+				return `${blockquoteMatch[1]}\\${blockquoteMatch[2]}${blockquoteMatch[3]}`;
+			})
+			.join("\n");
+	}
+
 	private renderToken(
 		token: Token,
 		width: number,
@@ -355,7 +428,7 @@ export class Markdown implements Component {
 
 			case "list": {
 				const listLines = this.renderList(token as any, 0, styleContext);
-				lines.push(...listLines);
+				this.appendLines(lines, listLines);
 				// Don't add spacing after lists if a space token follows
 				// (the space token will handle it)
 				break;
@@ -363,11 +436,20 @@ export class Markdown implements Component {
 
 			case "table": {
 				const tableLines = this.renderTable(token as any, width, nextTokenType, styleContext);
-				lines.push(...tableLines);
+				this.appendLines(lines, tableLines);
 				break;
 			}
 
 			case "blockquote": {
+				const blockquoteToken = token as Tokens.Blockquote;
+				if (this.getBlockquoteNestingDepth(blockquoteToken) > MAX_BLOCKQUOTE_NESTING_DEPTH) {
+					this.appendLines(lines, this.renderBlockquoteAsPlainText(blockquoteToken, styleContext));
+					if (nextTokenType && nextTokenType !== "space") {
+						lines.push("");
+					}
+					break;
+				}
+
 				const quoteStyle = (text: string) => this.theme.quote(this.theme.italic(text));
 				const quoteStylePrefix = this.getStylePrefix(quoteStyle);
 				const applyQuoteStyle = (line: string): string => {
@@ -393,8 +475,9 @@ export class Markdown implements Component {
 				for (let i = 0; i < quoteTokens.length; i++) {
 					const quoteToken = quoteTokens[i];
 					const nextQuoteToken = quoteTokens[i + 1];
-					renderedQuoteLines.push(
-						...this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
+					this.appendLines(
+						renderedQuoteLines,
+						this.renderToken(quoteToken, quoteContentWidth, nextQuoteToken?.type, quoteInlineStyleContext),
 					);
 				}
 
@@ -607,7 +690,7 @@ export class Markdown implements Component {
 				// Nested list - render with one additional indent level
 				// These lines will have their own indent, so we just add them as-is
 				const nestedLines = this.renderList(token as any, parentDepth + 1, styleContext);
-				lines.push(...nestedLines);
+				this.appendLines(lines, nestedLines);
 			} else if (token.type === "text") {
 				// Text content (may have inline tokens)
 				const text =
